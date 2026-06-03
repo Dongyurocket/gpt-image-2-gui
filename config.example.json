@@ -1,0 +1,18 @@
+{
+  "base_url": "https://api.example.com",
+  "api_key": "",
+  "model": "gpt-image-2",
+  "size": "auto",
+  "quality": "high",
+  "output_format": "png",
+  "response_format": "url",
+  "output_compression": "100",
+  "background": "auto",
+  "moderation": "auto",
+  "input_fidelity": "high",
+  "output_dir": "outputs",
+  "proxy_mode": "不使用代理",
+  "proxy_url": "",
+  "edit_preprocess": "关闭",
+  "edit_max_side": "1024"
+}

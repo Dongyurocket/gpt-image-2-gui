@@ -1,0 +1,31 @@
+# Local secrets and machine-specific config
+config.json
+config.local.json
+*.local.json
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+
+# Generated images and local runtime artifacts
+outputs/
+__pycache__/
+*.py[cod]
+*.log
+*.tmp
+*.temp
+
+# Virtual environments and editor state
+.venv/
+venv/
+.idea/
+.vscode/
+
+# OS metadata
+.DS_Store
+Thumbs.db
