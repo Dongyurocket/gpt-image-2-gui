@@ -17,21 +17,29 @@
 
    脚本会自动安装依赖，然后启动 GUI。
 
-2. 也可以在当前目录手动运行：
+2. 首次使用前，把示例配置复制为本地配置：
+
+   ```powershell
+   Copy-Item config.example.json config.json
+   ```
+
+   也可以在文件管理器里把 `config.example.json` 复制一份，并重命名为 `config.json`。
+
+3. 也可以在当前目录手动运行：
 
    ```powershell
    python -m pip install -r requirements.txt
    python image2_gui.py
    ```
 
-3. 在界面顶部填写连接配置：
+4. 在界面顶部填写连接配置：
 
    - `Base URL`：你的图片 API 服务地址，例如 `https://api.example.com`
    - `API Key`：你的 Bearer 令牌，只填密钥本体，不需要写 `Bearer`
    - `Model`：模型名称，默认 `gpt-image-2`
    - `代理模式`：默认 `不使用代理`
 
-4. 点击 `保存配置`，或直接点击 `生成图片` / `编辑图片`。
+5. 点击 `保存配置`，或直接点击 `生成图片` / `编辑图片`。
 
    程序会把当前配置自动保存到同目录的 `config.json`，下次启动会自动读取。
 
@@ -82,11 +90,19 @@
 
 ## 配置文件
 
-配置文件位于程序同目录：
+项目提供了一个示例配置文件：
+
+```text
+config.example.json
+```
+
+首次使用时，请复制一份并重命名为本地配置文件：
 
 ```text
 config.json
 ```
+
+然后在 `config.json` 里填写自己的 `base_url` 和 `api_key`，或启动 GUI 后在界面中填写并点击 `保存配置`。
 
 当前会保存这些字段：
 
