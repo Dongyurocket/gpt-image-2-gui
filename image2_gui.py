@@ -41,7 +41,7 @@ APP_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = APP_DIR / "config.json"
 
 DEFAULT_CONFIG: dict[str, str] = {
-    "base_url": "https://api.example.com",
+    "base_url": "https://www.packyapi.com",
     "api_key": "",
     "model": "gpt-image-2",
     "size": "1024x1024",
@@ -98,7 +98,9 @@ class Image2Gui(tk.Tk):
         }
         self.text_prompt: tk.Text | None = None
         self.edit_prompt: tk.Text | None = None
-        self.image_path = tk.StringVar()
+        self.image_paths: list[str] = []
+        self.image_count = tk.StringVar(value="尚未选择图片")
+        self.image_listbox: tk.Listbox | None = None
         self.mask_path = tk.StringVar()
         self.last_file = tk.StringVar(value="尚未生成图片")
 
@@ -192,21 +194,35 @@ class Image2Gui(tk.Tk):
 
         edit_tab = ttk.Frame(tabs, padding=10)
         edit_tab.columnconfigure(1, weight=1)
-        edit_tab.rowconfigure(4, weight=1)
+        edit_tab.rowconfigure(5, weight=1)
         tabs.add(edit_tab, text="图片编辑 / 图生图")
 
-        ttk.Label(edit_tab, text="图片").grid(row=0, column=0, sticky="w", padx=(0, 8))
-        ttk.Entry(edit_tab, textvariable=self.image_path).grid(row=0, column=1, sticky="ew")
-        ttk.Button(edit_tab, text="选择图片", command=self.choose_image).grid(row=0, column=2, sticky="ew", padx=(8, 0))
+        ttk.Label(edit_tab, text="参考图片").grid(row=0, column=0, sticky="nw", padx=(0, 8))
+        image_frame = ttk.Frame(edit_tab)
+        image_frame.grid(row=0, column=1, sticky="ew")
+        image_frame.columnconfigure(0, weight=1)
+        self.image_listbox = tk.Listbox(image_frame, height=4, selectmode="extended", exportselection=False)
+        self.image_listbox.grid(row=0, column=0, sticky="ew")
+        image_scrollbar = ttk.Scrollbar(image_frame, command=self.image_listbox.yview)
+        image_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.image_listbox.configure(yscrollcommand=image_scrollbar.set)
+        ttk.Label(image_frame, textvariable=self.image_count).grid(row=1, column=0, columnspan=2, sticky="w", pady=(4, 0))
 
-        ttk.Label(edit_tab, text="Mask").grid(row=1, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
-        ttk.Entry(edit_tab, textvariable=self.mask_path).grid(row=1, column=1, sticky="ew", pady=(8, 0))
-        ttk.Button(edit_tab, text="选择Mask", command=self.choose_mask).grid(row=1, column=2, sticky="ew", padx=(8, 0), pady=(8, 0))
-        ttk.Button(edit_tab, text="清空Mask", command=lambda: self.mask_path.set("")).grid(row=2, column=2, sticky="ew", padx=(8, 0), pady=(8, 0))
+        image_buttons = ttk.Frame(edit_tab)
+        image_buttons.grid(row=0, column=2, sticky="new", padx=(8, 0))
+        ttk.Button(image_buttons, text="选择图片", command=self.choose_images).grid(row=0, column=0, sticky="ew")
+        ttk.Button(image_buttons, text="追加图片", command=self.add_images).grid(row=1, column=0, sticky="ew", pady=(6, 0))
+        ttk.Button(image_buttons, text="移除选中", command=self.remove_selected_images).grid(row=2, column=0, sticky="ew", pady=(6, 0))
+        ttk.Button(image_buttons, text="清空图片", command=self.clear_images).grid(row=3, column=0, sticky="ew", pady=(6, 0))
 
-        ttk.Label(edit_tab, text="Prompt").grid(row=3, column=0, columnspan=3, sticky="w", pady=(10, 0))
+        ttk.Label(edit_tab, text="Mask").grid(row=2, column=0, sticky="w", padx=(0, 8), pady=(8, 0))
+        ttk.Entry(edit_tab, textvariable=self.mask_path).grid(row=2, column=1, sticky="ew", pady=(8, 0))
+        ttk.Button(edit_tab, text="选择Mask", command=self.choose_mask).grid(row=2, column=2, sticky="ew", padx=(8, 0), pady=(8, 0))
+        ttk.Button(edit_tab, text="清空Mask", command=lambda: self.mask_path.set("")).grid(row=3, column=2, sticky="ew", padx=(8, 0), pady=(8, 0))
+
+        ttk.Label(edit_tab, text="Prompt").grid(row=4, column=0, columnspan=3, sticky="w", pady=(10, 0))
         edit_prompt_frame = ttk.Frame(edit_tab)
-        edit_prompt_frame.grid(row=4, column=0, columnspan=3, sticky="nsew", pady=(6, 10))
+        edit_prompt_frame.grid(row=5, column=0, columnspan=3, sticky="nsew", pady=(6, 10))
         edit_prompt_frame.columnconfigure(0, weight=1)
         edit_prompt_frame.rowconfigure(0, weight=1)
         self.edit_prompt = tk.Text(edit_prompt_frame, height=7, wrap="word", undo=True)
@@ -219,7 +235,7 @@ class Image2Gui(tk.Tk):
             "保留图片里的主体和整体质感，在右上角加一枚红色小印章，印章上写 DEMO",
         )
         edit_btn = ttk.Button(edit_tab, text="编辑图片", command=self.start_edit)
-        edit_btn.grid(row=5, column=2, sticky="e")
+        edit_btn.grid(row=6, column=2, sticky="e")
         self.buttons.append(edit_btn)
 
         result_bar = ttk.Frame(root)
@@ -253,15 +269,69 @@ class Image2Gui(tk.Tk):
         if folder:
             self.vars["output_dir"].set(folder)
 
-    def choose_image(self) -> None:
-        path = filedialog.askopenfilename(
+    def choose_images(self) -> None:
+        paths = filedialog.askopenfilenames(
             filetypes=[
                 ("Images", "*.png *.jpg *.jpeg *.webp"),
                 ("All files", "*.*"),
             ]
         )
-        if path:
-            self.image_path.set(path)
+        if paths:
+            self.set_image_paths(list(paths))
+
+    def add_images(self) -> None:
+        paths = filedialog.askopenfilenames(
+            filetypes=[
+                ("Images", "*.png *.jpg *.jpeg *.webp"),
+                ("All files", "*.*"),
+            ]
+        )
+        if paths:
+            self.set_image_paths([*self.image_paths, *paths])
+
+    def remove_selected_images(self) -> None:
+        if self.image_listbox is None:
+            return
+        selected = set(self.image_listbox.curselection())
+        if not selected:
+            return
+        self.image_paths = [
+            path
+            for index, path in enumerate(self.image_paths)
+            if index not in selected
+        ]
+        self.refresh_image_list()
+
+    def clear_images(self) -> None:
+        self.image_paths = []
+        self.refresh_image_list()
+
+    def set_image_paths(self, paths: list[str] | tuple[str, ...]) -> None:
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for raw_path in paths:
+            path = str(raw_path).strip()
+            if not path:
+                continue
+            key = normalize_path_key(path)
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(path)
+        self.image_paths = deduped
+        self.refresh_image_list()
+
+    def refresh_image_list(self) -> None:
+        if self.image_listbox is not None:
+            self.image_listbox.delete(0, "end")
+            for path in self.image_paths:
+                self.image_listbox.insert("end", path)
+
+        count = len(self.image_paths)
+        if count == 0:
+            self.image_count.set("尚未选择图片")
+        else:
+            self.image_count.set(f"已选择 {count} 张参考图片")
 
     def choose_mask(self) -> None:
         path = filedialog.askopenfilename(
@@ -311,21 +381,22 @@ class Image2Gui(tk.Tk):
             messagebox.showerror("界面未就绪", "图片编辑 Prompt 输入框还没有初始化。")
             return
         prompt = self.edit_prompt.get("1.0", "end").strip()
-        image_path = self.image_path.get().strip()
+        image_paths = [path.strip() for path in self.image_paths if path.strip()]
         if not prompt:
             messagebox.showwarning("缺少 Prompt", "请先输入图片编辑 Prompt。")
             return
-        if not image_path:
-            messagebox.showwarning("缺少图片", "请先选择一张本地图片。")
+        if not image_paths:
+            messagebox.showwarning("缺少图片", "请先选择至少一张本地参考图片。")
             return
-        if not Path(image_path).is_file():
-            messagebox.showwarning("图片不存在", "请选择有效的本地图片文件。")
+        invalid_images = [path for path in image_paths if not Path(path).is_file()]
+        if invalid_images:
+            messagebox.showwarning("图片不存在", f"请选择有效的本地图片文件:\n{invalid_images[0]}")
             return
         mask_path = self.mask_path.get().strip()
         if mask_path and not Path(mask_path).is_file():
             messagebox.showwarning("Mask不存在", "请选择有效的 PNG mask，或清空 Mask。")
             return
-        self.start_worker("图片编辑", self.worker_edit, prompt, image_path, mask_path)
+        self.start_worker("图片编辑", self.worker_edit, prompt, image_paths, mask_path)
 
     def start_worker(self, task_name: str, target: Any, *args: Any) -> None:
         if requests is None:
@@ -336,7 +407,7 @@ class Image2Gui(tk.Tk):
             return
         config = self.collect_config()
         if not config["base_url"]:
-            messagebox.showwarning("缺少 Base URL", "请输入 Base URL，例如 https://api.example.com。")
+            messagebox.showwarning("缺少 Base URL", "请输入 Base URL，例如 https://www.packyapi.com。")
             return
         if not config["api_key"]:
             messagebox.showwarning("缺少 API Key", "请输入 Bearer API Key。")
@@ -381,7 +452,7 @@ class Image2Gui(tk.Tk):
         )
         return self.handle_api_response(response, config)
 
-    def worker_edit(self, config: dict[str, str], prompt: str, image_path: str, mask_path: str) -> Path:
+    def worker_edit(self, config: dict[str, str], prompt: str, image_paths: list[str], mask_path: str) -> Path:
         url = build_endpoint(config["base_url"], "edits")
         data: dict[str, str] = {
             "model": config["model"] or "gpt-image-2",
@@ -399,20 +470,26 @@ class Image2Gui(tk.Tk):
         opened_files = []
         temp_files: list[Path] = []
         try:
-            upload_image_path, upload_mask_path, temp_files = prepare_edit_uploads(image_path, mask_path, config)
-            self.events.put(("log", upload_summary(image_path, upload_image_path, "图片")))
+            upload_image_paths, upload_mask_path, temp_files = prepare_edit_uploads(image_paths, mask_path, config)
+            for index, (image_path, upload_image_path) in enumerate(zip(image_paths, upload_image_paths), start=1):
+                label = "图片" if len(upload_image_paths) == 1 else f"图片{index}"
+                self.events.put(("log", upload_summary(image_path, upload_image_path, label)))
             if mask_path and upload_mask_path:
                 self.events.put(("log", upload_summary(mask_path, upload_mask_path, "Mask")))
 
-            image = open(upload_image_path, "rb")
-            opened_files.append(image)
-            files: dict[str, tuple[str, Any, str]] = {
-                "image": (Path(upload_image_path).name, image, guess_mime(str(upload_image_path))),
-            }
+            files: list[tuple[str, tuple[str, Any, str]]] = []
+            image_field = "image" if len(upload_image_paths) == 1 else "image[]"
+            for upload_image_path in upload_image_paths:
+                image = open(upload_image_path, "rb")
+                opened_files.append(image)
+                files.append((
+                    image_field,
+                    (Path(upload_image_path).name, image, guess_mime(str(upload_image_path))),
+                ))
             if upload_mask_path:
                 mask = open(upload_mask_path, "rb")
                 opened_files.append(mask)
-                files["mask"] = (Path(upload_mask_path).name, mask, "image/png")
+                files.append(("mask", (Path(upload_mask_path).name, mask, "image/png")))
 
             self.events.put(("log", f"POST {url}"))
             session = build_session(config)
@@ -599,12 +676,12 @@ def proxy_log_message(config: dict[str, str]) -> str:
     return "代理模式: 不使用代理"
 
 
-def prepare_edit_uploads(image_path: str, mask_path: str, config: dict[str, str]) -> tuple[Path, Path | None, list[Path]]:
-    source_image = Path(image_path)
+def prepare_edit_uploads(image_paths: list[str], mask_path: str, config: dict[str, str]) -> tuple[list[Path], Path | None, list[Path]]:
+    source_images = [Path(path) for path in image_paths]
     source_mask = Path(mask_path) if mask_path else None
 
     if config.get("edit_preprocess", "开启") != "开启":
-        return source_image, source_mask, []
+        return source_images, source_mask, []
 
     if Image is None:
         raise RuntimeError("编辑预处理需要 Pillow。请运行: python -m pip install -r requirements.txt")
@@ -617,9 +694,19 @@ def prepare_edit_uploads(image_path: str, mask_path: str, config: dict[str, str]
         raise RuntimeError("上传最长边不能小于 256。")
 
     temp_files: list[Path] = []
-    upload_image = make_upload_copy(source_image, max_side, temp_files, prefer_png=False)
+    upload_images = [
+        make_upload_copy(source_image, max_side, temp_files, prefer_png=False)
+        for source_image in source_images
+    ]
     upload_mask = make_upload_copy(source_mask, max_side, temp_files, prefer_png=True) if source_mask else None
-    return upload_image, upload_mask, temp_files
+    return upload_images, upload_mask, temp_files
+
+
+def normalize_path_key(path: str) -> str:
+    try:
+        return str(Path(path).resolve()).casefold()
+    except OSError:
+        return str(Path(path)).casefold()
 
 
 def make_upload_copy(source: Path | None, max_side: int, temp_files: list[Path], prefer_png: bool) -> Path | None:

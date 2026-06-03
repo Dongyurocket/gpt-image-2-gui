@@ -8,8 +8,8 @@
 - 图片编辑 / 图生图：`/v1/images/edits`
 - 保存 `Base URL`、`API Key`、模型、尺寸、质量、输出目录等常用参数
 - 自动下载 `url` 返回的图片，或保存 `b64_json` 返回的图片
-- 选择本地图片和可选 PNG mask
-- 支持不使用代理、使用系统代理、自定义代理
+- 选择、追加、移除、清空一张或多张本地参考图片，并支持可选 PNG mask
+- 支持不使用代理、使用系统代理、自定义代理；默认和推荐都是不使用代理
 
 ## 快速开始
 
@@ -34,10 +34,10 @@
 
 4. 在界面顶部填写连接配置：
 
-   - `Base URL`：你的图片 API 服务地址，例如 `https://api.example.com`
+   - `Base URL`：你的图片 API 服务地址，例如 `https://www.packyapi.com`
    - `API Key`：你的 Bearer 令牌，只填密钥本体，不需要写 `Bearer`
    - `Model`：模型名称，默认 `gpt-image-2`
-   - `代理模式`：默认 `不使用代理`
+   - `代理模式`：默认 `不使用代理`。除非你的网络环境明确要求，否则建议保持不使用代理
 
 5. 点击 `保存配置`，或直接点击 `生成图片` / `编辑图片`。
 
@@ -68,10 +68,10 @@
 
 常见填写方式：
 
-- 填根地址：`https://api.example.com`
-- 填 `/v1` 地址：`https://api.example.com/v1`
-- 填图片接口前缀：`https://api.example.com/v1/images`
-- 直接填完整文生图地址：`https://api.example.com/v1/images/generations`
+- 填根地址：`https://www.packyapi.com`
+- 填 `/v1` 地址：`https://www.packyapi.com/v1`
+- 填图片接口前缀：`https://www.packyapi.com/v1/images`
+- 直接填完整文生图地址：`https://www.packyapi.com/v1/images/generations`
 
 例如把服务地址从 A 改到 B：
 
@@ -84,7 +84,7 @@
 
 ```json
 {
-  "base_url": "https://api.example.com"
+  "base_url": "https://www.packyapi.com"
 }
 ```
 
@@ -137,10 +137,13 @@ config.json
 ## 图片编辑 / 图生图
 
 1. 打开 `图片编辑 / 图生图` 页签。
-2. 点击 `选择图片`，选择本地 `png`、`jpg`、`jpeg` 或 `webp` 图片。
-3. 如果接口需要 mask，点击 `选择Mask` 选择 PNG mask；不需要时留空。
-4. 在 `Prompt` 文本框输入编辑要求。
-5. 点击 `编辑图片`。
+2. 点击 `选择图片`，选择本地 `png`、`jpg`、`jpeg` 或 `webp` 参考图片。
+3. 普通用户建议一次只上传 1 张参考图，接口更稳定，也更容易让模型理解要保留的主体和风格。
+4. 如果确实需要多张参考图，可以在文件选择窗口里多选，或点击 `追加图片` 继续添加。
+5. `选择图片` 会替换当前参考图列表；`追加图片` 会保留已有图片并继续添加；`移除选中` 和 `清空图片` 可用于整理列表。
+6. 如果接口需要 mask，点击 `选择Mask` 选择 PNG mask；不需要时留空。
+7. 在 `Prompt` 文本框输入编辑要求。
+8. 点击 `编辑图片`。
 
 图片编辑默认可开启预处理，把上传副本缩小到 `上传最长边` 以内，减少接口超时概率。预处理只会生成临时副本，不会改动原图。
 
@@ -149,16 +152,19 @@ config.json
 - `n` 固定为 `1`，程序不会发送多图数量。
 - `stream`、`partial_images`、`style` 不会发送。
 - 只有 `output_format` 为 `jpeg` 时才会发送 `output_compression`。
-- 图片编辑接口会用 `multipart/form-data` 上传本地图片。
+- 图片编辑接口会用 `multipart/form-data` 上传本地图片；单张参考图使用 `image` 字段，多张参考图使用多个 `image[]` 字段。
+- 虽然 GUI 支持多张参考图，但仍建议优先只上传 1 张；多张图片会增加上传体积、超时概率和提示词歧义。
 - `response_format=url` 时程序会下载 URL 图片；`response_format=b64_json` 时程序会解码保存图片。
 
 ## 代理设置
 
-如果看到类似 `ProxyError('Unable to connect to proxy')` 的报错，说明请求被代理影响，但代理没有正常响应。
+建议尽量不要开启代理，优先使用 `不使用代理`。图片生成和下载通常耗时较长，代理会增加连接失败、超时、下载中断等不稳定因素。
+
+只有在你的网络环境明确无法直连接口时，再考虑使用系统代理或自定义代理。如果看到类似 `ProxyError('Unable to connect to proxy')` 的报错，说明请求被代理影响，但代理没有正常响应。
 
 可以在界面里这样处理：
 
-- 普通直连：选择 `不使用代理`
+- 普通直连：选择 `不使用代理`，这是推荐设置
 - 必须走系统代理：选择 `使用系统代理`
 - 必须指定代理：选择 `自定义代理`，并填写例如 `http://127.0.0.1:7890`
 
@@ -172,4 +178,5 @@ config.json
 - `上传最长边`：`1024`
 - `质量`：`medium`
 - `尺寸`：`1024x1024`
+- `代理模式`：`不使用代理`
 - Prompt 先写短一点，确认能通后再逐步提高质量和尺寸
