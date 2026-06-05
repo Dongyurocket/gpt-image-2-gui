@@ -1,6 +1,6 @@
-# gpt-image-2-gui
+# gpt-image-2
 
-这是一个 Windows 本地 GUI 调用工具，用来调用兼容 OpenAI Images API 形式的图片接口。
+调用兼容 OpenAI Images API 形式的图片接口的本地工具集，包含 Windows GUI 和 MCP 服务器两种使用方式。
 
 支持功能：
 
@@ -10,6 +10,20 @@
 - 自动下载 `url` 返回的图片，或保存 `b64_json` 返回的图片
 - 选择、追加、移除、清空一张或多张本地参考图片，并支持可选 PNG mask
 - 支持不使用代理、使用系统代理、自定义代理；默认和推荐都是不使用代理
+- 提供 MCP 服务器 (`mcp_server.py`)，把文生图和图片编辑暴露成 MCP 工具，可在支持 MCP 的客户端里直接调用
+
+## 项目结构
+
+```text
+image2/
+├── image2_gui.py        # Tkinter 桌面 GUI
+├── mcp_server.py        # MCP stdio 服务器（mcp 工具入口）
+├── run_gui.bat          # Windows 一键启动脚本
+├── requirements.txt     # Python 依赖
+├── config.example.json  # 配置文件模板（不含密钥）
+├── config.json          # 本地真实配置（含 API key，已 gitignore）
+└── outputs/             # 默认图片输出目录（已 gitignore）
+```
 
 ## 快速开始
 
@@ -34,7 +48,7 @@
 
 4. 在界面顶部填写连接配置：
 
-   - `Base URL`：你的图片 API 服务地址，例如 `https://www.packyapi.com`
+   - `Base URL`：你的图片 API 服务地址，例如 `https://api.example.com`
    - `API Key`：你的 Bearer 令牌，只填密钥本体，不需要写 `Bearer`
    - `Model`：模型名称，默认 `gpt-image-2`
    - `代理模式`：默认 `不使用代理`。除非你的网络环境明确要求，否则建议保持不使用代理
@@ -68,10 +82,10 @@
 
 常见填写方式：
 
-- 填根地址：`https://www.packyapi.com`
-- 填 `/v1` 地址：`https://www.packyapi.com/v1`
-- 填图片接口前缀：`https://www.packyapi.com/v1/images`
-- 直接填完整文生图地址：`https://www.packyapi.com/v1/images/generations`
+- 填根地址：`https://api.example.com`
+- 填 `/v1` 地址：`https://api.example.com/v1`
+- 填图片接口前缀：`https://api.example.com/v1/images`
+- 直接填完整文生图地址：`https://api.example.com/v1/images/generations`
 
 例如把服务地址从 A 改到 B：
 
@@ -84,7 +98,7 @@
 
 ```json
 {
-  "base_url": "https://www.packyapi.com"
+  "base_url": "https://api.example.com"
 }
 ```
 
@@ -180,3 +194,85 @@ config.json
 - `尺寸`：`1024x1024`
 - `代理模式`：`不使用代理`
 - Prompt 先写短一点，确认能通后再逐步提高质量和尺寸
+
+## MCP 服务器
+
+`mcp_server.py` 通过 [Model Context Protocol](https://modelcontextprotocol.io/) stdio 接口，把 image2 的能力暴露成两个 MCP 工具，**配置仍然由 GUI 维护**（`config.json`），MCP 只读取，不在协议层管理密钥。
+
+### 依赖
+
+MCP 服务器除了 GUI 的依赖，还需要：
+
+```text
+mcp[cli]>=1.0.0
+```
+
+`requirements.txt` 已经包含这一行。
+
+### 启动
+
+在项目根目录下手动启动：
+
+```powershell
+python mcp_server.py
+```
+
+stdio 模式会一直阻塞等待客户端输入，不能直接在终端里运行出"完成"效果，正确的做法是把它注册到 MCP 客户端的配置里。
+
+### 注册到 MCP 客户端
+
+下面是几个常见客户端的配置示例。`command` 用项目里 Python 解释器，`args` 指向 `mcp_server.py` 绝对路径。占位符 `<PROJECT_ROOT>` 替换成你本机实际项目根目录，例如 `C:/Users/yourname/Downloads/image2`。
+
+Claude Desktop (`claude_desktop_config.json`)：
+
+```json
+{
+  "mcpServers": {
+    "image2": {
+      "command": "python",
+      "args": ["<PROJECT_ROOT>/mcp_server.py"]
+    }
+  }
+}
+```
+
+Proma / 其他支持 `mcp.json` 的客户端：
+
+```json
+{
+  "servers": {
+    "image2": {
+      "command": "python",
+      "args": ["<PROJECT_ROOT>/mcp_server.py"]
+    }
+  }
+}
+```
+
+修改配置后重启 MCP 客户端，新工具就会出现在工具列表里。
+
+### 可用工具
+
+| 工具名 | 用途 | 关键参数 |
+| --- | --- | --- |
+| `generate_image` | 文生图 | `prompt` |
+| `edit_image` | 图片编辑 / 图生图 | `prompt`, `image_paths`（绝对路径列表，至少 1 张）, `mask_path`（可选 PNG mask 绝对路径） |
+
+两个工具都会返回生成文件的绝对路径。模型、尺寸、质量、输出格式等参数仍然从 `config.json` 读取，不在工具签名里暴露。
+
+### 配置要求
+
+调用任一工具时，服务器会读取 `config.json`：
+
+- `base_url` 不能为空，也不能仍是默认占位
+- `api_key` 不能为空
+
+如果还没在 GUI 里保存过配置，工具调用会以 `RuntimeError` 形式返回明确报错，提示先在 GUI 里填写并保存。不会因为缺配置就静默走默认占位 URL。
+
+### 注意事项
+
+- MCP 服务器和 GUI 共用 `config.json`，所以密钥、上游地址、代理等都由 GUI 维护；MCP 端不要另外写密钥，避免配置漂移。
+- `image_paths` 和 `mask_path` 必须是本地绝对路径。MCP 客户端传入相对路径时，工具会直接报错而不是静默拼接。
+- 图片编辑接口默认走 `multipart/form-data`；单张参考图使用 `image` 字段，多张使用 `image[]` 字段。和 GUI 行为完全一致。
+- `image_paths` 中文件类型必须是 PNG / JPG / JPEG / WebP，否则会被 `guess_mime` 拒绝。
+- 工具调用是同步的，单次请求最长等待 `API_TIMEOUT_SEC`（600 秒）。如果上游处理慢，客户端可能需要等较长时间才返回路径。

@@ -41,7 +41,7 @@ APP_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = APP_DIR / "config.json"
 
 DEFAULT_CONFIG: dict[str, str] = {
-    "base_url": "https://www.packyapi.com",
+    "base_url": "https://api.example.com",
     "api_key": "",
     "model": "gpt-image-2",
     "size": "1024x1024",
@@ -407,7 +407,7 @@ class Image2Gui(tk.Tk):
             return
         config = self.collect_config()
         if not config["base_url"]:
-            messagebox.showwarning("缺少 Base URL", "请输入 Base URL，例如 https://www.packyapi.com。")
+            messagebox.showwarning("缺少 Base URL", "请输入 Base URL，例如 https://api.example.com。")
             return
         if not config["api_key"]:
             messagebox.showwarning("缺少 API Key", "请输入 Bearer API Key。")

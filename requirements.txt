@@ -1,2 +1,6 @@
 requests>=2.31.0
 Pillow>=10.0.0
+# Required by mcp_server.py (FastMCP stdio server). The [cli] extra provides
+# the `mcp` CLI helpers some clients expect; safe to install if you only use
+# the stdio server.
+mcp[cli]>=1.0.0

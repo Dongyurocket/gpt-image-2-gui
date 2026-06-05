@@ -1,5 +1,5 @@
 {
-  "base_url": "https://www.packyapi.com",
+  "base_url": "https://api.example.com",
   "api_key": "",
   "model": "gpt-image-2",
   "size": "auto",

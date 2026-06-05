@@ -25,7 +25,12 @@ __pycache__/
 venv/
 .idea/
 .vscode/
+*.swp
+*.swo
+*~
+*.bak
 
 # OS metadata
 .DS_Store
 Thumbs.db
+desktop.ini
